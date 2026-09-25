@@ -3,6 +3,7 @@ import requests
 import json
 import pandas as pd
 import os
+import io
 
 # ================= 1. 页面配置 =================
 st.set_page_config(page_title="文献摘要提取器", layout="wide")
@@ -12,9 +13,9 @@ st.markdown("输入文献摘要，AI 自动提取【实验条件】和【结论�
 # ================= 2. 你的核心 API 逻辑 (记得填入真实的 API_KEY) =================
 #API_KEY = os.getenv("DEEPSEEK_API_KEY")  # 建议后续改为从环境变量读取
 # 优先从云端 Secrets 读取，本地测试再从环境变量读取
-if "DEEPSEEK_API_KEY" in st.secrets:
+try:
     API_KEY = st.secrets["DEEPSEEK_API_KEY"]
-else:
+except (FileNotFoundError, KeyError):
     API_KEY = os.getenv("DEEPSEEK_API_KEY")
 API_URL = "https://api.deepseek.com/chat/completions"  # 如果是DeepSeek就填这个
 
@@ -94,13 +95,27 @@ if st.button("🚀 开始提取", type="primary"):
                 st.subheader("📥 导出数据")
                 # 把字典转为 DataFrame，再转为 Excel 字节流
                 df = pd.DataFrame([data])
-                excel_data = df.to_excel(index=False, engine='openpyxl')  # 需要 pip install openpyxl
+                # 替换掉原来的 excel_data = df.to_excel(...) 这一行
+                buffer = io.BytesIO()  # 1. 创建一个内存中的二进制缓冲区
+                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:  # 2. 使用 ExcelWriter 写入
+                    df.to_excel(writer, index=False)  # 3. 写进缓冲区，不保存到本地文件
+                excel_data = buffer.getvalue()  # 4. 把缓冲区里的数据读成字节
+                buffer.close()  # 5. 关闭缓冲区
+
+                st.download_button(
+                    label="点击下载 Excel 文件",
+                    data=excel_data,  # 这里的 excel_data 现在是正确的字节数据
+                    file_name="extraction_result.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+                #excel_data = df.to_excel(index=False, engine='openpyxl')  # 需要 pip install openpyxl
 
                 st.download_button(
                     label="点击下载 Excel 文件",
                     data=excel_data,
                     file_name="extraction_result.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="download_excel_btn"
                 )
 
             except json.JSONDecodeError:
