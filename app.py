@@ -5,6 +5,15 @@ import pandas as pd
 import os
 import io
 
+# ================= 0. 密码锁 =================
+# 优先从云端 Secrets 获取密码，本地测试用默认密码
+PASSWORD = st.secrets.get("APP_PASSWORD", "my_secret_password_123")
+
+user_password = st.text_input("🔒 请输入访问密码：", type="password")
+if user_password != PASSWORD:
+    st.warning("⚠️ 密码错误，无法访问。")
+    st.stop() # 密码不对，后面的代码全部不执行
+
 # ================= 1. 页面配置 =================
 st.set_page_config(page_title="文献摘要提取器", layout="wide")
 st.title("🧪 文献摘要信息提取器")
